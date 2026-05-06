@@ -1,122 +1,103 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from "react";
+import axios from "axios";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  const token =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJNYXBDbGFpbXMiOnsiYXVkIjoiaHR0cDovLzIwLjI0NC41Ni4xNDQvZXZhbHVhdGlvbi1zZXJ2aWNlIiwiZW1haWwiOiJjYi5zYy51NGNzZTIzNjE4QGNiLnN0dWRlbnRzLmFtcml0YS5lZHUiLCJleHAiOjE3NzgwNjQzNTIsImlhdCI6MTc3ODA2MzQ1MiwiaXNzIjoiQWZmb3JkIE1lZGljYWwgVGVjaG5vbG9naWVzIFByaXZhdGUgTGltaXRlZCIsImp0aSI6IjhhZjJiZDU2LTNjMmItNGIwNy1iYWE2LWI3YjY3ZDZmYzE2ZCIsImxvY2FsZSI6ImVuLUlOIiwibmFtZSI6InJhbmdhIGFydW4ga3VtYXIiLCJzdWIiOiJmNTU0NDdiOS03YzE5LTQ3MjktODE3Yy1jMzkwMDRhMjc2MWMifSwiZW1haWwiOiJjYi5zYy51NGNzZTIzNjE4QGNiLnN0dWRlbnRzLmFtcml0YS5lZHUiLCJuYW1lIjoicmFuZ2EgYXJ1biBrdW1hciIsInJvbGxObyI6ImNiLnNjLnU0Y3NlMjMxOCIsImFjY2Vzc0NvZGUiOiJQVEJNbVEiLCJjbGllbnRJRCI6ImY1NTQ0NDdiOS03YzE5LTQ3MjktODE3Yy1jMzkwMDRhMjc2MWMifQ.FW315ooT26vyX-RED0kbMNxYxoGD_4sy1qATyj0w_UU";
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await axios.get(
+        "http://20.207.122.201/evaluation-service/notifications",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log(response.data);
+
+      // Directly set response
+      setNotifications(response.data);
+    } catch (error) {
+      console.log(error);
+
+      // Dummy fallback data
+      setNotifications([
+        {
+          Type: "Placement",
+          Message: "Microsoft Hiring Drive",
+          Timestamp: "2026-05-06",
+        },
+        {
+          Type: "Result",
+          Message: "Mid Semester Results Published",
+          Timestamp: "2026-05-06",
+        },
+        {
+          Type: "Event",
+          Message: "Hackathon Registration Open",
+          Timestamp: "2026-05-06",
+        },
+      ]);
+    }
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div
+      style={{
+        width: "80%",
+        margin: "auto",
+        textAlign: "center",
+        fontFamily: "Arial",
+      }}
+    >
+      <h1 style={{ marginTop: "40px" }}>
+        Campus Notification System
+      </h1>
 
-      <div className="ticks"></div>
+      <h2>All Notifications</h2>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      {notifications.length === 0 ? (
+        <h3>No Notifications Found</h3>
+      ) : (
+        notifications.map((notification: any, index) => (
+          <div
+            key={index}
+            style={{
+              border: "1px solid gray",
+              padding: "20px",
+              margin: "20px",
+              borderRadius: "10px",
+              backgroundColor: "#f5f5f5",
+            }}
+          >
+            <h2>{notification.Type}</h2>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+            <p
+              style={{
+                fontSize: "18px",
+              }}
+            >
+              {notification.Message}
+            </p>
+
+            <p>
+              <b>Timestamp:</b>{" "}
+              {notification.Timestamp}
+            </p>
+          </div>
+        ))
+      )}
+    </div>
+  );
 }
 
-export default App
+export default App;
