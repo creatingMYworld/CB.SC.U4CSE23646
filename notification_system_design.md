@@ -790,3 +790,609 @@ the Campus Notification System becomes:
 - responsive
 - fault tolerant
 - capable of handling high concurrent traffic efficiently
+
+
+# Stage 5
+
+# High-Volume Notification Processing Architecture
+
+The Campus Notification System must support scenarios where notifications are delivered to thousands of students at the same time.  
+A simple synchronous implementation is not suitable for large-scale notification delivery because it creates delays, increases failure risk, and reduces overall system reliability.
+
+---
+
+# Existing Notification Flow
+
+```python
+function notify_all(student_ids, message):
+
+    for student_id in student_ids:
+
+        send_email(student_id, message)
+
+        save_notification(student_id, message)
+
+        send_push_notification(student_id, message)
+```
+
+---
+
+# Limitations of the Existing Design
+
+The current implementation introduces several scalability and reliability problems.
+
+---
+
+## 1. Sequential Execution
+
+Notifications are processed one after another.
+
+Impact:
+- delivery becomes slow
+- overall execution time increases
+- server resources remain occupied for long periods
+
+For large batches, the system cannot scale efficiently.
+
+---
+
+## 2. Request Blocking
+
+The API request waits until:
+- email delivery completes
+- database insertion completes
+- push notification delivery completes
+
+Problems:
+- increased API response time
+- higher timeout probability
+- poor user experience
+
+---
+
+## 3. Failure Propagation
+
+If one operation fails:
+- remaining notifications may stop processing
+- notification consistency becomes unreliable
+
+Example:
+- email service fails after processing 200 users
+- remaining students never receive notifications
+
+---
+
+## 4. Tight Dependency Between Services
+
+Database operations and external notification services are tightly connected.
+
+This increases:
+- system coupling
+- failure impact
+- recovery difficulty
+
+---
+
+## 5. Limited Throughput
+
+Processing thousands of students synchronously creates:
+- server overload
+- slow performance
+- reduced scalability
+
+---
+
+# Improved Scalable Architecture
+
+To improve reliability and scalability, an asynchronous queue-based architecture is introduced.
+
+---
+
+# Optimized Processing Flow
+
+```text
+Administrator Request
+          ↓
+Notification API
+          ↓
+Queue System
+          ↓
+Background Workers
+ ┌─────────────┬─────────────┬─────────────┐
+ ↓             ↓             ↓
+Database     Email Service   Push Service
+```
+
+---
+
+# Queue-Based Asynchronous Processing
+
+Instead of processing notifications immediately:
+- tasks are added to a message queue
+- worker services process them independently
+
+Suitable technologies:
+- RabbitMQ
+- Apache Kafka
+- AWS SQS
+
+---
+
+# Advantages of Queue Processing
+
+## Faster API Response
+
+The backend only accepts the request and pushes jobs into the queue.
+
+Example response:
+
+```json
+{
+  "message": "Notification request queued successfully"
+}
+```
+
+Benefits:
+- lower response latency
+- reduced request blocking
+- improved frontend responsiveness
+
+---
+
+## Improved Scalability
+
+Multiple workers can process jobs simultaneously.
+
+Benefits:
+- higher throughput
+- better concurrent processing
+- faster bulk delivery
+
+---
+
+## Fault Isolation
+
+Failure in one worker does not stop the entire system.
+
+Benefits:
+- reliable delivery
+- improved fault tolerance
+- isolated service failures
+
+---
+
+# Recommended Processing Order
+
+## Step 1: Store Notifications in Database
+
+Notifications should first be persisted in the database.
+
+Reason:
+- guarantees data durability
+- prevents notification loss
+- supports recovery and retries
+
+---
+
+## Step 2: Publish Delivery Jobs to Queue
+
+After successful database insertion:
+- email tasks are queued
+- push notification tasks are queued
+
+This separates persistence from delivery execution.
+
+---
+
+# Why Database Persistence Comes First
+
+If external delivery succeeds before database storage:
+- notification history becomes inconsistent
+
+If the notification is already stored:
+- failed deliveries can be retried safely
+
+Therefore, persistence must happen before external processing.
+
+---
+
+# Retry Strategy
+
+Worker services should automatically retry failed jobs.
+
+Possible failure scenarios:
+- temporary email API downtime
+- network interruptions
+- third-party service throttling
+
+Recommended retry approach:
+- exponential backoff
+- retry count limit
+- delayed retries
+
+---
+
+# Dead Letter Queue (DLQ)
+
+Jobs that fail repeatedly are moved into a Dead Letter Queue.
+
+Benefits:
+- prevents endless retry loops
+- allows manual debugging
+- improves monitoring and recovery
+
+---
+
+# Parallel Worker Execution
+
+Workers can process notification batches concurrently.
+
+Example:
+
+```text
+Worker A → Batch 1
+Worker B → Batch 2
+Worker C → Batch 3
+```
+
+Benefits:
+- improved delivery speed
+- efficient resource utilization
+- horizontal scalability
+
+---
+
+# Optimized Notification Pseudocode
+
+```python
+function notify_all(student_ids, message):
+
+    saved_notifications = []
+
+    for student_id in student_ids:
+
+        notification = save_to_database(
+            student_id,
+            message
+        )
+
+        saved_notifications.append(notification)
+
+    for notification in saved_notifications:
+
+        queue.publish({
+            "notification_id": notification.id
+        })
+
+    return {
+        "message": "Bulk notifications queued successfully"
+    }
+```
+
+---
+
+# Worker Service Logic
+
+```python
+process_worker():
+
+    while true:
+
+        task = queue.consume()
+
+        send_email(task.notification_id)
+
+        send_push_notification(task.notification_id)
+```
+
+---
+
+# Additional Performance Improvements
+
+## 1. Batch-Based Processing
+
+Large notification sets should be divided into smaller chunks.
+
+Example:
+- 500 or 1000 users per batch
+
+Benefits:
+- lower memory consumption
+- better worker efficiency
+- stable processing
+
+---
+
+## 2. Rate Limiting
+
+External email providers may enforce API limits.
+
+Rate limiting prevents:
+- request rejection
+- service throttling
+- delivery failures
+
+---
+
+## 3. Real-Time Monitoring
+
+The system should monitor:
+- queue size
+- worker health
+- retry count
+- failed jobs
+- delivery success rate
+
+This improves operational visibility and debugging.
+
+---
+
+# Logging Integration
+
+Queue and delivery operations are tracked using the custom logging middleware.
+
+Example:
+
+```js
+Log(
+  "backend",
+  "info",
+  "service",
+  "Notification batch added to processing queue",
+  token
+);
+```
+
+Additional logs help monitor:
+- worker crashes
+- retry attempts
+- email delivery failures
+- queue processing performance
+
+---
+
+# Final Architecture Outcome
+
+By introducing:
+- asynchronous queues
+- worker-based execution
+- retry handling
+- dead letter queues
+- parallel processing
+
+the notification platform becomes:
+- scalable
+- resilient
+- fault tolerant
+- capable of handling very high notification traffic 
+
+
+# Stage 6
+
+# Priority Notification System
+
+To improve user experience, a Priority Inbox mechanism was implemented to display the most important unread notifications first. The system ranks notifications using a weighted scoring algorithm based on notification category and recency.
+
+---
+
+# Objective
+
+The goal of this stage is to:
+- identify the most important notifications
+- improve notification visibility
+- reduce information overload
+- ensure students see critical updates immediately
+
+---
+
+# Notification Types
+
+The Notification API provides three categories:
+
+| Notification Type | Priority Level |
+|-------------------|----------------|
+| Placement         | Highest        |
+| Result            | Medium         |
+| Event             | Lowest         |
+
+Placement notifications are treated as the highest priority because they directly affect student career opportunities.
+
+---
+
+# Priority Scoring Algorithm
+
+Each notification is assigned a weighted score.
+
+## Type-Based Weight
+
+| Type       | Weight |
+|------------|--------|
+| Placement  | 30     |
+| Result     | 20     |
+| Event      | 10     |
+
+---
+
+# Recency-Based Scoring
+
+Recent notifications receive additional score boosts.
+
+Formula used:
+
+```text
+Priority Score =
+Type Weight + Recency Score
+```
+
+Recency score decreases gradually as notifications become older.
+
+This ensures:
+- important notifications remain visible
+- recent notifications appear before outdated ones
+
+---
+
+# Processing Flow
+
+```text
+Fetch Notifications
+        ↓
+Calculate Priority Score
+        ↓
+Sort Notifications
+        ↓
+Select Top 10
+        ↓
+Display Priority Inbox
+```
+
+---
+
+# Notification Fetching
+
+Notifications are fetched securely from the protected Notification API using Bearer Token authentication.
+
+API Used:
+
+```http
+GET /evaluation-service/notifications
+```
+
+Authorization Header:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+---
+
+# Sorting Strategy
+
+Notifications are sorted in descending order based on:
+1. notification type weight
+2. recency score
+
+The highest scored notifications are displayed first.
+
+---
+
+# Top 10 Selection
+
+After sorting:
+- only the top 10 notifications are selected
+- reduces UI clutter
+- improves frontend rendering performance
+- improves user readability
+
+---
+
+# Scalability Considerations
+
+The solution was designed to scale efficiently for large notification volumes.
+
+## Optimizations
+
+### 1. Lightweight In-Memory Processing
+
+Priority calculations are performed in memory without modifying database records.
+
+Benefits:
+- reduced database load
+- faster execution
+- lower query complexity
+
+---
+
+### 2. Efficient Sorting
+
+Sorting complexity:
+
+```text
+O(n log n)
+```
+
+This provides efficient ranking even for large datasets.
+
+---
+
+### 3. API-Based Architecture
+
+Notifications are fetched dynamically using APIs instead of hardcoded records.
+
+Benefits:
+- real-time updates
+- easier maintenance
+- improved extensibility
+
+---
+
+# Logging Middleware Integration
+
+The custom logging middleware is integrated to track:
+- notification fetch operations
+- ranking execution
+- API failures
+- processing status
+
+Example:
+
+```javascript
+Log(
+  "backend",
+  "info",
+  "service",
+  "Priority notifications calculated successfully",
+  token
+);
+```
+
+---
+
+# Output
+
+The implementation successfully:
+- fetched notifications from the API
+- calculated priority scores
+- ranked notifications dynamically
+- displayed the top 10 highest priority notifications
+
+The generated output demonstrates proper prioritization and ranking based on both notification importance and recency
+
+# Stage 7 — Frontend Notification Dashboard
+
+## Objective
+
+Implemented a React frontend dashboard to display campus notifications dynamically.
+
+## Features Implemented
+
+- React frontend using Vite
+- Notification cards UI
+- Dynamic rendering using React state
+- Axios API integration
+- Responsive layout
+- Notification timestamp display
+
+## Folder Structure
+
+src/
+├── components/
+├── pages/
+├── services/
+├── utils/
+
+## Frontend Workflow
+
+1. React application loads
+2. API request is sent
+3. Notifications are fetched
+4. State updates dynamically
+5. Notification cards render on screen
+
+## Benefits
+
+- clean user interface
+- reusable component structure
+- scalable frontend architecture
+- improved user experience
+- easy API integration

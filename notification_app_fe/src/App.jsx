@@ -1,97 +1,59 @@
-import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import AllNotifications from "./pages/AllNotifications";
+import PriorityInbox from "./pages/PriorityInbox";
+import { ThemeProvider, createTheme, CssBaseline, AppBar, Toolbar, Typography, Button, Container } from '@mui/material';
 
-import {
-  fetchNotifications,
-} from "./services/notificationService";
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#f97316',
+    },
+    background: {
+      default: '#fafafa',
+    }
+  },
+  typography: {
+    fontFamily: '"Outfit", "Roboto", "Helvetica", "Arial", sans-serif',
+  }
+});
 
 function App() {
-  const [notifications, setNotifications] =
-    useState([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  useEffect(() => {
-    loadNotifications();
-  }, []);
-
-  const loadNotifications = async () => {
-    const data =
-      await fetchNotifications();
-
-    console.log(
-      "Notifications:",
-      data
-    );
-
-    setNotifications(data);
-
-    setLoading(false);
-  };
-
   return (
-    <div
-      style={{
-        padding: "30px",
-        maxWidth: "900px",
-        margin: "auto",
-      }}
-    >
-      <h1
-        style={{
-          textAlign: "center",
-        }}
-      >
-        Campus Notification System
-      </h1>
-
-      <h2
-        style={{
-          textAlign: "center",
-        }}
-      >
-        All Notifications
-      </h2>
-
-      {loading ? (
-        <h3>Loading...</h3>
-      ) : notifications.length === 0 ? (
-        <h3>No Notifications Found</h3>
-      ) : (
-        notifications.map(
-          (notification, index) => (
-            <div
-              key={index}
-              style={{
-                border:
-                  "1px solid #ccc",
-                padding: "20px",
-                marginBottom: "15px",
-                borderRadius: "10px",
-                boxShadow:
-                  "0px 2px 5px rgba(0,0,0,0.1)",
-              }}
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <AppBar position="static" color="inherit" elevation={1} sx={{ mb: 4 }}>
+          <Toolbar>
+            <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 'bold', color: '#ea580c' }}>
+              Campus Notifications
+            </Typography>
+            <Button 
+              color="inherit" 
+              component={NavLink} 
+              to="/" 
+              sx={{ '&.active': { color: '#ea580c', borderBottom: '2px solid #ea580c' }, borderRadius: 0, mx: 1 }}
             >
-              <h2>
-                {notification.Type}
-              </h2>
-
-              <p>
-                {
-                  notification.Message
-                }
-              </p>
-
-              <small>
-                {
-                  notification.Timestamp
-                }
-              </small>
-            </div>
-          )
-        )
-      )}
-    </div>
+              Feed
+            </Button>
+            <Button 
+              color="inherit" 
+              component={NavLink} 
+              to="/priority" 
+              sx={{ '&.active': { color: '#ea580c', borderBottom: '2px solid #ea580c' }, borderRadius: 0, mx: 1 }}
+            >
+              Priority Inbox
+            </Button>
+          </Toolbar>
+        </AppBar>
+        
+        <Container maxWidth="md">
+          <Routes>
+            <Route path="/" element={<AllNotifications />} />
+            <Route path="/priority" element={<PriorityInbox />} />
+          </Routes>
+        </Container>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 
