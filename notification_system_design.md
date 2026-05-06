@@ -1,142 +1,253 @@
-# Stage 1
+# Stage 3
 
-## System Overview
+# Database Query Optimization and Performance Improvement
 
-The Campus Notification System enables students to receive real-time notifications related to:
+As the Campus Notification System grows, the notifications table can contain millions of records.  
+Efficient query optimization is necessary to ensure fast response times and smooth user experience.
 
-- Placements
-- Results
-- Events
-
-The platform supports:
-- Real-time notifications
-- Priority notifications
-- Pagination
-- Notification filtering
-- Read/unread tracking
+The following query retrieves unread notifications for a student.
 
 ---
 
-# REST API Design
+# Existing Query
 
-## 1. Get All Notifications
-
-### Endpoint
-
-GET /notifications
-
-### Query Parameters
-
-| Parameter | Description |
-|---|---|
-| page | Pagination page |
-| limit | Number of notifications |
-| notification_type | Filter notifications |
-
-### Response
-
-```json
-{
-  "notifications": [
-    {
-      "id": "1",
-      "type": "Placement",
-      "message": "Amazon Hiring",
-      "isRead": false,
-      "createdAt": "2026-04-22T10:00:00Z"
-    }
-  ]
-}
+```sql
+SELECT *
+FROM notifications
+WHERE student_id = 1042
+AND read_status = FALSE
+ORDER BY created_at ASC;
 ```
 
 ---
 
-## 2. Get Notification By ID
+# Performance Issues in the Existing Query
 
-### Endpoint
+The query may become inefficient when the database size increases because:
 
-GET /notifications/:id
+- the database may scan the complete notifications table
+- filtering unread notifications becomes expensive
+- sorting records by timestamp increases execution cost
+- repeated queries increase database load
+- response time increases during peak traffic
+
+Without optimization, the query execution time increases linearly as records grow.
 
 ---
 
-## 3. Mark Notification As Read
+# Root Cause of Slow Performance
 
-### Endpoint
+The primary issue is the absence of a proper indexing strategy.
 
-PATCH /notifications/:id/read
+The query performs three major operations:
 
-### Response
+1. filtering using `student_id`
+2. filtering using `read_status`
+3. sorting using `created_at`
 
-```json
-{
-  "message": "Notification marked as read"
-}
+If these fields are not indexed together, the database performs unnecessary scans and sorting operations.
+
+---
+
+# Optimization Approach
+
+A composite index is introduced to optimize:
+- filtering
+- searching
+- sorting
+
+The index combines all frequently queried columns into a single optimized structure.
+
+---
+
+# Optimized Composite Index
+
+```sql
+CREATE INDEX idx_notifications_student_read_time
+ON notifications(student_id, read_status, created_at);
 ```
 
 ---
 
-## 4. Send Notification
+# Why Composite Indexing Improves Performance
 
-### Endpoint
+The index directly supports the query conditions.
 
-POST /notifications/send
+The database engine can:
+- locate matching student records faster
+- filter unread notifications efficiently
+- avoid expensive sorting operations
 
-### Request
+This significantly reduces query execution time.
 
-```json
-{
-  "studentIds": ["1", "2"],
-  "type": "Placement",
-  "message": "Microsoft Hiring"
-}
-```
+---
 
-### Response
+# Query Execution Improvement
 
-```json
-{
-  "message": "Notification sent successfully"
-}
+## Before Optimization
+
+Without indexing:
+
+- full table scan may occur
+- sorting is expensive
+- query latency increases under heavy traffic
+
+Approximate complexity:
+
+```text
+O(n)
 ```
 
 ---
 
-# Authentication
+## After Optimization
 
-All APIs use Bearer Token Authentication.
+With composite indexing:
+
+- records are fetched directly
+- sorting becomes optimized
+- database scans are minimized
+
+Approximate complexity:
+
+```text
+O(log n)
+```
+
+---
+
+# Improved Query Design
+
+Using `SELECT *` retrieves unnecessary columns and increases memory usage.
+
+A more optimized query is:
+
+```sql
+SELECT id, category, content, created_at
+FROM notifications
+WHERE student_id = 1042
+AND read_status = FALSE
+ORDER BY created_at ASC;
+```
+
+---
+
+# Benefits of the Improved Query
+
+- reduced bandwidth usage
+- lower memory consumption
+- faster execution
+- improved scalability
+
+---
+
+# Additional Performance Enhancements
+
+## 1. Pagination
+
+Instead of loading all notifications simultaneously, records should be loaded in smaller batches.
+
+Example:
 
 ```http
-Authorization: Bearer token
+GET /notifications?page=1&limit=20
 ```
 
----
+### Advantages
 
-# Real-Time Notification Mechanism
-
-The system uses WebSockets for real-time notification delivery.
-
-Workflow:
-1. Frontend establishes WebSocket connection
-2. Backend pushes notifications instantly
-3. Frontend updates UI dynamically
+- prevents large responses
+- reduces backend load
+- improves frontend rendering performance
 
 ---
 
-# Logging Strategy
+## 2. Redis Caching
 
-The custom logging middleware is integrated throughout the application.
+Frequently accessed unread notifications can be stored temporarily in Redis.
+
+### Advantages
+
+- reduces repeated database queries
+- improves API response speed
+- decreases database workload
+
+---
+
+## 3. Database Partitioning
+
+The notifications table can be partitioned using:
+- month
+- year
+- notification category
+
+### Advantages
+
+- smaller query search scope
+- faster query execution
+- easier maintenance
+
+---
+
+## 4. Read Replica Architecture
+
+Read-heavy operations can be distributed across multiple database replicas.
+
+### Advantages
+
+- improved availability
+- reduced load on primary database
+- better concurrent performance
+
+---
+
+# Risks of Excessive Indexing
+
+Although indexes improve read performance, excessive indexing introduces disadvantages.
+
+Potential drawbacks include:
+- increased storage consumption
+- slower insert operations
+- slower update operations
+- additional maintenance overhead
+
+Therefore, indexes should only be created for frequently used queries.
+
+---
+
+# Optimized Query for Placement Notifications
+
+The following query retrieves students who received placement notifications within the last seven days.
+
+```sql
+SELECT DISTINCT student_id
+FROM notifications
+WHERE category = 'Placement'
+AND created_at >= NOW() - INTERVAL '7 days';
+```
+
+This query helps identify recently notified students efficiently.
+
+---
+
+# Logging Integration
+
+All database optimization activities are monitored using the custom logging middleware.
 
 Example:
 
 ```js
-Log("backend", "info", "route", "Fetched notifications", token);
+Log(
+  "backend",
+  "info",
+  "db",
+  "Optimized unread notification query executed successfully",
+  token
+);
 ```
 
-Logs are maintained for:
-- API requests
-- Errors
-- Authentication
-- Database operations
-- Notification delivery
-
-
+The logging system helps track:
+- slow queries
+- database bottlenecks
+- query execution failures
+- performance improvements
+- optimization effectiveness
